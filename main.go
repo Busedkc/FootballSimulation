@@ -46,8 +46,6 @@ func dbConn() (*sql.DB, error) {
 }
 
 func playMatches(db *sql.DB) error {
-	//Takımları çek
-	teams := []Team{}
 	rows, err := db.Query("SELECT id, name, strength FROM Teams")
 	if err != nil {
 		return err
@@ -55,6 +53,7 @@ func playMatches(db *sql.DB) error {
 
 	defer rows.Close()
 
+	teams := []Team{}
 	for rows.Next() {
 		var t Team
 		if err := rows.Scan(&t.ID, &t.Name, &t.Strength); err != nil {
@@ -62,8 +61,7 @@ func playMatches(db *sql.DB) error {
 		}
 		teams = append(teams, t)
 	}
-	//Maçları oynat
-	rand.Seed(time.Now().UnixNano())
+
 	for i := 0; i < len(teams); i += 2 {
 		home := teams[i]
 		away := teams[i+1]
@@ -88,7 +86,58 @@ func playMatches(db *sql.DB) error {
 	return nil
 }
 
+func updateStandings(db *sql.DB) error {
+	rows, err := db.Query("SELECT home_team_id, away_team_id, home_goals, away_goals FROM Matches")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var homeID, awayID, homeGoals, awayGoals int
+		if err := rows.Scan(&homeID, &awayID, &homeGoals, &awayGoals); err != nil {
+			return err
+		}
+
+		homeResult, awayResult := "draw", "draw"
+		homePoints, awayPoints := 1, 1
+
+		if homeGoals > awayGoals {
+			homeResult, awayResult = "win", "loss"
+			homePoints, awayPoints = 3, 0
+		} else if homeGoals < awayGoals {
+			homeResult, awayResult = "loss", "win"
+			homePoints, awayPoints = 3, 0
+		}
+		if err := updateTeamStanding(db, homeID, homeGoals, awayGoals, homePoints, homeResult); err != nil {
+			return err
+		}
+
+		if err := updateTeamStanding(db, awayID, awayGoals, homeGoals, awayPoints, awayResult); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func updateTeamStanding(db *sql.DB, teamID, goalsFor, goalsAgainst, points int, result string) error {
+	_, err := db.Exec(`UPDATE Standings SET
+			               played = played + 1,
+			               wins = wins + CASE WHEN ? = 'win' THEN 1 ELSE 0 END,
+			               draws = draws + CASE WHEN ? = 'draw' THEN 1 ELSE 0 END,
+			               losses = losses + CASE WHEN ? = 'loss' THEN 1 ELSE 0 END,
+			               goals_for = goals_for + ?,
+			               goals_against = goals_against + ?,
+			               goal_difference = goal_difference + (? - ?),
+			               points = points + ?
+			               WHERE team_id = ?`,
+		result, result, result, goalsFor, goalsAgainst, goalsFor, goalsAgainst, points, teamID)
+	return err
+}
+
 func main() {
+	rand.Seed(time.Now().UnixNano())
+
 	//Veritabanı bağlantısını aç
 	db, err := dbConn()
 	if err != nil {
@@ -101,5 +150,11 @@ func main() {
 	err = playMatches(db)
 	if err != nil {
 		fmt.Println("Maç oynatma hatası:", err)
+		return
+	}
+
+	err = updateStandings(db)
+	if err != nil {
+		fmt.Println("Sıralama güncelleme hatası:", err)
 	}
 }
