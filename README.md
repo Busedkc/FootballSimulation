@@ -32,4 +32,5 @@ INSERT INTO teams (id, name, strength, goal_difference) VALUES (4, 'Liverpool', 
 
 
 2. Download Project
+git clone https://github.com/Busedkc/FootballSimulation.git
 
