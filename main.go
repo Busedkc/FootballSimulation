@@ -13,6 +13,9 @@ func main() {
 	// This ensures consistency of random numbers used throughout the application
 	rand.Seed(time.Now().UnixNano())
 
+	// Initialize the database connection
+	initDB()
+
 	// Set up the HTTP server
 	//this defines which endpoints are available and how they are handled
 	setupRoutes()

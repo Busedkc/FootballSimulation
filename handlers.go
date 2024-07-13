@@ -2,70 +2,54 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 )
 
-// getStandings handles HTTP requests to retrieve the current standings from the league table
-// It queries the database for all teams' standings and returns them in JSON format
-func getStandings(w http.ResponseWriter, r *http.Request) {
-	db, err := dbConn() //establishing a database connection
+// getTeamsHandler handles the HTTP request for retrieving all teams
+func getTeamsHandler(w http.ResponseWriter, r *http.Request) {
+	// Retrieve teams from the database
+	teams, err := getTeams()
 	if err != nil {
-		http.Error(w, "Database connection error: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Failed to retrieve teams", http.StatusInternalServerError)
 		return
 	}
-	defer db.Close() //ensure the database connection is closed on function exit
-
-	//query the database for all current standing
-	rows, err := db.Query("SELECT * FROM Standings")
-	if err != nil {
-		http.Error(w, "Failed to query standings: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-	defer rows.Close() //ensure rows are closed after processing
-
-	var standings []Standing
-	for rows.Next() {
-		var s Standing
-		//scan the row into the satnding struct
-		if err := rows.Scan(&s.TeamID, &s.Played, &s.Wins, &s.Draws, &s.Losses, &s.GoalsFor, &s.GoalsAgainst, &s.GoalDifference, &s.Points); err != nil {
-			http.Error(w, "Failed to parse standings: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-		standings = append(standings, s) //append the parsed standing to the slice
-	}
-
-	w.Header().Set("Content-Type", "application/json") //set content type as JSON
-	json.NewEncoder(w).Encode(standings)               //encode standings into JSON and send it as a response
+	// Set the content type to JSON
+	w.Header().Set("Content-Type", "application/json")
+	// Encode and send the teams as JSON
+	json.NewEncoder(w).Encode(teams)
 }
 
-// playAllMatches handles HTTP requests to simulate all matches for the current week and update the standings.
-func playAllMatches(w http.ResponseWriter, r *http.Request) {
-	db, err := dbConn() // Establish a database connection.
+// getMatchesHandler handles the HTTP request for retrieving all matches
+func getMatchesHandler(w http.ResponseWriter, r *http.Request) {
+	// Retrieve matches from the database
+	matches, err := getMatches()
 	if err != nil {
-		http.Error(w, "Database connection error: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Failed to retrieve matches", http.StatusInternalServerError)
 		return
 	}
-	defer db.Close() //ensure the database connection is closed on function exit
+	// Set the content type to JSON
+	w.Header().Set("Content-Type", "application/json")
+	// Encode and send the matches as JSON
+	json.NewEncoder(w).Encode(matches)
+}
 
-	//retrieve the current week from the database
-	week, err := getCurrentWeek(db)
-	if err != nil {
-		http.Error(w, "Failed to get current week: "+err.Error(), http.StatusInternalServerError)
+// simulateMatchHandler handles the HTTP request for simulating a match
+func simulateMatchHandler(w http.ResponseWriter, r *http.Request) {
+	var match Match
+	// Decode the request body into the match struct
+	if err := json.NewDecoder(r.Body).Decode(&match); err != nil {
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
 		return
 	}
-
-	//simulate matches for the current week
-	if err := playMatches(db, week); err != nil {
-		http.Error(w, "Failed to play matches: "+err.Error(), http.StatusInternalServerError)
+	// Simulate the match
+	simulateMatch(&match)
+	// Save the match result to the database
+	if err := saveMatch(match); err != nil {
+		http.Error(w, "Failed to save match", http.StatusInternalServerError)
 		return
 	}
-
-	//update the satndings in the database after matches are played
-	if err := updateStandings(db); err != nil {
-		http.Error(w, "Failed to update standings: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	fmt.Fprintf(w, "Matches played and standings updated successfully") //send a success message to the client
+	// Set the content type to JSON
+	w.Header().Set("Content-Type", "application/json")
+	// Encode and send the match result as JSON
+	json.NewEncoder(w).Encode(match)
 }
