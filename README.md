@@ -1,12 +1,12 @@
-# FootballSimulation 
+## FootballSimulation 
 
 This project emulates a football league where teams such as Liverpool, Manchester United, Manchester City, 
 and Chelsea compete in random matches. The teams' scores are updated according to the match outcomes, and the 
 league standings are determined accordingly. The project is implemented using the Go programming language and a MySQL database.
 
-# Installation 
+## Installation 
 
-1. MySQL Database Setup
+# 1. MySQL Database Setup
 
 CREATE TABLE teams (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -31,6 +31,7 @@ INSERT INTO teams (id, name, strength, goal_difference) VALUES (3, 'Manchester C
 INSERT INTO teams (id, name, strength, goal_difference) VALUES (4, 'Liverpool', 85, 0);
 
 
-2. Download Project
+# 2. Download Project
+
 git clone https://github.com/Busedkc/FootballSimulation.git
 
